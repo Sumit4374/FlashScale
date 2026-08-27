@@ -1,32 +1,52 @@
 package sumit.flashscale.flash_scale.controller;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import sumit.flashscale.flash_scale.model.Product;
 import sumit.flashscale.flash_scale.service.ProductService;
+import sumit.flashscale.flash_scale.service.redisService.RedisService;
 
-import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
+
+
 
 
 @RestController
-@RequestMapping("/api/v1/product")
+@RequestMapping("/api/v1/products")
 public class ProductController {
 
     private final ProductService service;
+    private final RedisService redisService;
 
-    ProductController(ProductService service){
+    public ProductController(ProductService service, RedisService redisService){
         this.service = service;
+        this.redisService = redisService;
     }
 
     @GetMapping("/get/{id}")
-    public ResponseEntity<Product> getMethodName(@PathVariable Long id) throws NotFoundException {
+    public ResponseEntity<Product> getMethodName(@PathVariable Long id){
+        
         return ResponseEntity.ok(service.get(id));
     }
-    
+
+    @GetMapping("/cache/status")
+    public ResponseEntity<Map<String,Object>> getCacheStatus(){
+        Long hits = redisService.getCacheHits();
+        Long miss = redisService.getCacheMiss();
+        Long total = miss+hits;
+        Long databaseReads = service.getDatabaseRead();
+        Double ratio = total == 0 ? 0 : (double) hits / total * 100;
+        return ResponseEntity.ok(
+            Map.of(
+                "Hits", hits,
+                "Missed",miss,
+                "Total",total,
+                "DatabaseReads",databaseReads,
+                "Ratio",ratio
+            )
+        );
+    }
     
 }
