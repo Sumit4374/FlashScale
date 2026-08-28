@@ -12,7 +12,7 @@ import sumit.flashscale.flash_scale.model.Product;
 @Configuration
 public class RedisConfig {
 
-    @Bean
+    @Bean("productRedisTemplate")
     public RedisTemplate<String,Product> redisTemplate(RedisConnectionFactory factory){
         RedisTemplate<String,Product> template = new RedisTemplate<>();
         template.setConnectionFactory(factory);
@@ -22,7 +22,16 @@ public class RedisConfig {
         template.setHashKeySerializer(new StringRedisSerializer());
         template.setHashValueSerializer(serializer);
         template.afterPropertiesSet();
-
         return  template;
+    }
+
+    @Bean("lockRedisTemplate")
+    public RedisTemplate<String, String> lockRedisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, String> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new StringRedisSerializer());
+        template.afterPropertiesSet();
+        return template;
     }
 }

@@ -8,6 +8,7 @@ import sumit.flashscale.flash_scale.service.redisService.RedisService;
 
 import java.util.Map;
 
+import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.http.ResponseEntity;
 
 
@@ -26,7 +27,7 @@ public class ProductController {
     }
 
     @GetMapping("/get/{id}")
-    public ResponseEntity<Product> getMethodName(@PathVariable Long id){
+    public ResponseEntity<Product> getMethodName(@PathVariable Long id) throws NotFoundException{
         
         return ResponseEntity.ok(service.get(id));
     }
