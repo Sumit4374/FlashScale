@@ -4,10 +4,10 @@ import org.springframework.web.bind.annotation.*;
 
 import sumit.flashscale.flash_scale.model.Product;
 import sumit.flashscale.flash_scale.service.ProductService;
-import sumit.flashscale.flash_scale.service.redisService.RedisService;
 
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.http.ResponseEntity;
 
@@ -18,12 +18,18 @@ import org.springframework.http.ResponseEntity;
 @RequestMapping("/api/v1/products")
 public class ProductController {
 
-    private final ProductService service;
-    private final RedisService redisService;
+    @Value("${INSTANCE_ID:local}")
+    private String instanceID;
 
-    public ProductController(ProductService service, RedisService redisService){
+    private final ProductService service;
+
+    public ProductController(ProductService service){
         this.service = service;
-        this.redisService = redisService;
+    }
+
+    @GetMapping("/health/load")
+    public ResponseEntity<String> loadTest() {
+        return ResponseEntity.ok("OK");
     }
 
     @GetMapping("/get/{id}")
@@ -34,18 +40,25 @@ public class ProductController {
 
     @GetMapping("/cache/status")
     public ResponseEntity<Map<String,Object>> getCacheStatus(){
-        Long hits = redisService.getCacheHits();
-        Long miss = redisService.getCacheMiss();
+        Long miss = service.getCacheMiss();
+        Long hits = service.getCacheHits();
+        Long waits = service.getCacheWaits();
         Long total = miss+hits;
         Long databaseReads = service.getDatabaseRead();
         Double ratio = total == 0 ? 0 : (double) hits / total * 100;
+        Long lockAquired = service.getLockAquired();
+        Long lockFailed = service.getLockFailed();
         return ResponseEntity.ok(
             Map.of(
+                "Instance",instanceID,
                 "Hits", hits,
                 "Missed",miss,
+                "Cache wait",waits,
                 "Total",total,
                 "DatabaseReads",databaseReads,
-                "Ratio",ratio
+                "Ratio",ratio,
+                "LockAquired",lockAquired,
+                "LockFailed",lockFailed
             )
         );
     }

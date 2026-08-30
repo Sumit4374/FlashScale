@@ -85,6 +85,7 @@
 	</dependencies>
 
 	<build>
+	<finalName>flash_scale</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>

@@ -8,4 +8,9 @@ import sumit.flashscale.flash_scale.model.Product;
 public interface ProductService {
     Product get(Long id) throws NotFoundException;
     Long getDatabaseRead();
+    Long getLockAquired();
+    Long getLockFailed();
+    Long getCacheMiss();
+    Long getCacheHits();
+    Long getCacheWaits();
 }

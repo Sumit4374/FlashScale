@@ -2,7 +2,6 @@ package sumit.flashscale.flash_scale.service.redisService;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -18,9 +17,6 @@ public class RedisService {
     private final RedisTemplate<String,String> lockRedisTemplate;
 
     private final String LOCK_PREFIX = "lock:product";
-
-    private final AtomicLong cacheHits = new AtomicLong();
-    private final AtomicLong cacheMiss = new AtomicLong();
 
     private static final String RELEASE_LOCK_SCRIPT = """
                                                     if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -68,18 +64,9 @@ public class RedisService {
         String key = "product:"+id;
         Product product = (Product)productRedisTemplate.opsForValue().get(key);
         if(product != null){
-            cacheHits.incrementAndGet();
             return product;
         }
-        cacheMiss.incrementAndGet();
         return null;
     }
 
-    public Long getCacheMiss(){
-        return cacheMiss.get();
-    }
-
-    public Long getCacheHits(){
-        return cacheHits.get();
-    }
 }

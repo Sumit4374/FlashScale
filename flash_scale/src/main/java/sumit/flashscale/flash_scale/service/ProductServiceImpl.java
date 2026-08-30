@@ -11,36 +11,44 @@ import sumit.flashscale.flash_scale.repository.ProductRepository;
 import sumit.flashscale.flash_scale.service.redisService.RedisService;
 
 @Service
-public class ProductServiceImpl implements ProductService{
-    
+public class ProductServiceImpl implements ProductService {
+
     private final ProductRepository repo;
     private final RedisService redisService;
 
+    private final AtomicLong cacheMiss = new AtomicLong();
+    private final AtomicLong cacheHits = new AtomicLong();
     private final AtomicLong databaseRead = new AtomicLong();
+    private final AtomicLong lockAcquired = new AtomicLong();
+    private final AtomicLong lockFailed = new AtomicLong();
+    private final AtomicLong cacheWaits = new AtomicLong();
 
-    public ProductServiceImpl(ProductRepository repo, RedisService redisService){
+    public ProductServiceImpl(
+            ProductRepository repo,
+            RedisService redisService
+    ) {
         this.repo = repo;
         this.redisService = redisService;
     }
 
-
-    private Product cacheWait(Long id){
-        for(int i=0;i<20;i++){
+    private Product cacheWait(Long id) {
+        for (int i = 0; i < 40; i++) {
             Product product = redisService.get(id);
-            if(product != null){
+            if (product != null) {
                 return product;
             }
-
-            try{
+            try {
                 Thread.sleep(10);
-            } catch (InterruptedException e){
+            } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
+                throw new RuntimeException(
+                        "Interrupted while waiting for cache",
+                        e
+                );
             }
         }
-
         throw new RuntimeException(
-            "Unable to load product from cache"
+                "Unable to load product from cache"
         );
     }
 
@@ -48,25 +56,40 @@ public class ProductServiceImpl implements ProductService{
     public Product get(Long id) throws NotFoundException {
         Product product = redisService.get(id);
         if (product != null) {
+            cacheHits.incrementAndGet();
             return product;
         }
-
+        cacheMiss.incrementAndGet();
         String lockValue = UUID.randomUUID().toString();
-
-        if(!redisService.acquireLock(id, lockValue)){
+        boolean acquired = redisService.acquireLock(
+                id,
+                lockValue
+        );
+        if (!acquired) {
+            lockFailed.incrementAndGet();
+            cacheWaits.incrementAndGet();
             return cacheWait(id);
         }
+        lockAcquired.incrementAndGet();
         try {
             product = redisService.get(id);
+            if (product != null) {
+                return product;
+            }
             databaseRead.incrementAndGet();
-            product = repo.findById(id).orElseThrow(
-                () -> new RuntimeException("Product Not found")
-            ); 
-            Long ttl = 10l;
-            redisService.set(product,ttl);
+            product = repo.findById(id)
+                    .orElseThrow(
+                            () -> new RuntimeException(
+                                    "Product not found"
+                            )
+                    );
+            redisService.set(product, 10L);
             return product;
         } finally {
-            redisService.releaseLock(id, lockValue);
+            redisService.releaseLock(
+                    id,
+                    lockValue
+            );
         }
     }
 
@@ -75,6 +98,28 @@ public class ProductServiceImpl implements ProductService{
         return databaseRead.get();
     }
 
-    
+    @Override
+    public Long getLockAquired() {
+        return lockAcquired.get();
+    }
 
+    @Override
+    public Long getLockFailed() {
+        return lockFailed.get();
+    }
+
+    @Override
+    public Long getCacheMiss() {
+        return cacheMiss.get();
+    }
+
+    @Override
+    public Long getCacheHits() {
+        return cacheHits.get();
+    }
+
+    @Override
+    public Long getCacheWaits() {
+        return cacheWaits.get();
+    }
 }
